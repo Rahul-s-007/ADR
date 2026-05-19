@@ -10,7 +10,7 @@ In the meantime, you can read the paper here:
 
 ## Overview
 
-ADR is a system for detecting and analyzing security-relevant behavior in agentic AI workflows, with a focus on enterprise AI agent security, benchmark-driven evaluation, and defensive detection.
+ADR provides observability and detection for agentic AI systems. The ADR Sensor captures high-fidelity AI agent telemetry, including prompts, MCP activity, reasoning traces, tool calls, and execution context, while ADR Detection analyzes that data to identify unsafe behavior such as credential exposure, prompt injection, data exfiltration, and malicious or policy-violating tool use.
 
 ## Status
 
