@@ -51,7 +51,7 @@ The project maintainers will then take care of the issue as soon as possible and
 This repository has two components, each with its own README and (for Sensor) a component-specific contributing guide:
 
 - [Sensor/](Sensor/) — telemetry collection. See [Sensor/CONTRIBUTING.md](Sensor/CONTRIBUTING.md) for parser-specific guidance, code style, and testing conventions.
-- [Detection/](Detection/) — ADR Detector and ADR-Bench. Contributions to Detection follow the guidance in this file.
+- [Detection/](Detection/) — ADR Detector and ADR-Bench. For adding MCP servers, benchmark tasks, or malicious test servers, see the [Detection README](Detection/README.md#part-3-enriching-the-benchmark); other contributions follow the guidance in this file.
 
 ## I Want To Contribute
 
