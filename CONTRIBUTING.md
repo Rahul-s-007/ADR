@@ -1,4 +1,4 @@
-# Contributing to Project
+# Contributing to ADR
 
 Thanks for taking the first step in contributing to our project.
 
