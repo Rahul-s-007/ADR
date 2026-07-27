@@ -4,8 +4,8 @@
      commits if your PR already received reviews or comments.
 
      Before submitting a Pull Request, please ensure you've done the following:
-     - 📖 Read the Contributing Guide: https://github.com/uber/h3/blob/main/CONTRIBUTING.md
-     - 📖 Read the Code of Conduct: https://github.com/uber/h3/blob/main/CODE_OF_CONDUCT.md
+     - 📖 Read the Contributing Guide: https://github.com/uber/ADR/blob/main/CONTRIBUTING.md
+     - 📖 Read the Code of Conduct: https://github.com/uber/ADR/blob/main/CODE_OF_CONDUCT.md
      - ✅ Provide tests for your changes.
      - 📝 Use descriptive commit messages.
 
@@ -21,6 +21,9 @@
 - [ ] Bug Fix
 - [ ] Optimization
 - [ ] Documentation Update
+
+<!-- Link any related issue (e.g., "Closes #123"), or "N/A" if there is none -->
+**Related issue**:
 
 <!-- Describe what has changed in this PR -->
 **What changed?**
