@@ -42,7 +42,7 @@ Component documentation:
 @article{li2026adr,
   title={ADR: An Agentic Detection System for Enterprise Agentic AI Security},
   author={Li, Chenning and Hu, Pan and Xu, Justin and Ozbas, Baris and Liu, Olivia and Van, Caroline and Li, Manxue and Zhou, Wei and Alizadeh, Mohammad and Zhang, Pengyu and Sriramadhesikan, KK and Zhang, Ming},
-  journal={arXiv preprint arXiv:2605.17380},
+  journal={Ninth Conference on Machine Learning and Systems},
   year={2026}
 }
 ```

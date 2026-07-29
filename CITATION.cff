@@ -58,5 +58,6 @@ preferred-citation:
     - family-names: "Zhang"
       given-names: "Ming"
   doi: "10.48550/arXiv.2605.17380"
+  journal: "Ninth Conference on Machine Learning and Systems"
   url: "https://arxiv.org/abs/2605.17380"
   date-released: "2026-05-17"
