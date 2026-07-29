@@ -122,7 +122,7 @@ requires-dist = [
     { name = "axios", specifier = ">=0.4.0" },
     { name = "beautifulsoup4", specifier = "==4.13.3" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=23.0.0" },
-    { name = "claude-code-sdk", specifier = ">=0.0.14" },
+    { name = "claude-code-sdk", specifier = ">=0.0.25" },
     { name = "click", specifier = "==8.1.8" },
     { name = "cryptography", specifier = ">=40.0.0" },
     { name = "deepdiff", specifier = "==8.1.1" },
@@ -858,15 +858,16 @@ wheels = [
 
 [[package]]
 name = "claude-code-sdk"
-version = "0.0.14"
+version = "0.0.25"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
+    { name = "mcp" },
     { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1b/50/489bd1cf9f448d9e06aa6af4a14db8e22ec5f7dbdb5fcc48821b1d8d1680/claude_code_sdk-0.0.14.tar.gz", hash = "sha256:a1c9384b6934c2b8351d7a35c0b7dcfd5fb657017fb456eb98bcf5e0b4f8eccd", size = 13403, upload-time = "2025-07-01T06:07:28.147Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ec/0d/0f4a71415826578a5ace16817c52df84d76ffbda5cdad02f520a2b963bde/claude_code_sdk-0.0.25.tar.gz", hash = "sha256:0d9e1eba432d4fe8a2f75f06ec9bb4c310f39b1d55246e7e4b2c69bfdd69eab3", size = 41273, upload-time = "2025-09-29T20:14:51.882Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/db/a4/6eb606ccb0988054ca52b9453045b2c2f1bc6fd9c915e0f6cd1f73d6ce2c/claude_code_sdk-0.0.14-py3-none-any.whl", hash = "sha256:83a23a260954bb84e78cf2dc42aaaa0eee778ca392e56f1661276f31ba64992c", size = 10589, upload-time = "2025-07-01T06:07:27.029Z" },
+    { url = "https://files.pythonhosted.org/packages/f5/41/c934058080f3233bbc95bc9abac5e0191bf336ad5f69a33b5f54a4737e88/claude_code_sdk-0.0.25-py3-none-any.whl", hash = "sha256:3d6a4ef958182f311d6050776d2675d9b39650a2db221c582a0a5156472dcee3", size = 31031, upload-time = "2025-09-29T20:14:50.687Z" },
 ]
 
 [[package]]
