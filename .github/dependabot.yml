@@ -1,0 +1,73 @@
+version: 2
+updates:
+  # Detection package — pinned for benchmark reproducibility.
+  # Security-only: routine version bumps are noise for a reproducibility-pinned
+  # research repo; the pinned-dep CVEs are accepted under the isolation notice
+  # (see Detection/README.md and docs/OPEN_SOURCE_REVIEW.md). Dependabot will
+  # still open PRs for known security advisories, which are informational.
+  - package-ecosystem: "uv"
+    directory: "/Detection"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    # Security-only: suppress routine version-update PRs, allow security advisories.
+    allow:
+      - dependency-type: "all"
+    # Ignore routine semver bumps for the AgentDojo-pinned deps (always rejected
+    # per the pin-retention decision) to reduce noise.
+    ignore:
+      - dependency-name: "aiohttp"
+      - dependency-name: "deepdiff"
+      - dependency-name: "langchain"
+      - dependency-name: "langchain-core"
+      - dependency-name: "langchain-community"
+      - dependency-name: "langchain-anthropic"
+      - dependency-name: "langchain-openai"
+      - dependency-name: "langchain-text-splitters"
+      - dependency-name: "langgraph"
+      - dependency-name: "langgraph-sdk"
+      - dependency-name: "langgraph-checkpoint"
+      - dependency-name: "nemoguardrails"
+      - dependency-name: "openapi-pydantic"
+      - dependency-name: "typing-extensions"
+      - dependency-name: "typing_extensions"
+      - dependency-name: "torch"
+      - dependency-name: "transformers"
+      - dependency-name: "tokenizers"
+      - dependency-name: "pillow"
+      - dependency-name: "Pillow"
+      - dependency-name: "fastmcp"
+      - dependency-name: "google-cloud-aiplatform"
+      - dependency-name: "llamafirewall"
+      - dependency-name: "openai"
+      - dependency-name: "anthropic"
+      - dependency-name: "google-generativeai"
+    labels:
+      - "dependencies"
+      - "python:uv"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Sensor package — single direct dep (tabulate), low maintenance burden.
+  - package-ecosystem: "uv"
+    directory: "/Sensor"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "python:uv"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # GitHub Actions workflows (none yet, but keeps future workflows current).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 2
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore(deps)"
