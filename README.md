@@ -2,8 +2,7 @@
 
 ADR is an open-source telemetry sensor and dual-agent benchmark/detection framework for securing AI agents that use the Model Context Protocol (MCP).
 
-Research artifacts for **[ADR: An Agentic Detection System for Enterprise Agentic AI Security](https://arxiv.org/abs/2605.17380)** (MLSys 2026).  
-**Code:** [github.com/uber/ADR](https://github.com/uber/ADR)
+Research artifacts for **ADR: An Agentic Detection System for Enterprise Agentic AI Security** (MLSys 2026): **[Paper PDF](docs/adr-paper.pdf)** · **[Slides PDF](docs/adr-mlsys-2026-slides.pdf)**
 
 ADR secures AI agents that use the [Model Context Protocol (MCP)](https://modelcontextprotocol.io). This repository contains the open-source **ADR Sensor** (telemetry) and **ADR Detector** (benchmark + detection framework) described in the paper. The offline **ADR Explorer** red-teaming engine (§3) is not included here.
 
