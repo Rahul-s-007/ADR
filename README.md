@@ -1,23 +1,29 @@
-# ADR — Agentic Detection and Response
+# ADR: Agentic AI Detection and Response
 
-ADR is an open-source telemetry sensor and dual-agent benchmark/detection framework for securing AI agents that use the Model Context Protocol (MCP).
+ADR (Agentic AI Detection and Response) is an enterprise security system for AI agents. It helps organizations secure employee-facing agents such as Cursor, Claude Code, and Codex, as well as customer-facing agents such as AI support agents.
 
-Research artifacts for **ADR: An Agentic Detection System for Enterprise Agentic AI Security** (MLSys 2026): **[Paper PDF](docs/adr-paper.pdf)** · **[Slides PDF](docs/adr-mlsys-2026-slides.pdf)**
+ADR is **deployed in production at Uber**, and the accompanying paper was accepted to **MLSys 2026**: [Paper PDF](docs/adr-paper.pdf) · [Slides PDF](docs/adr-mlsys-2026-slides.pdf)
 
-ADR secures AI agents that use the [Model Context Protocol (MCP)](https://modelcontextprotocol.io). This repository contains the open-source **ADR Sensor** (telemetry) and **ADR Detector** (benchmark + detection framework) described in the paper. The offline **ADR Explorer** red-teaming engine (§3) is not included here.
+## How ADR secures enterprise AI agents
+
+ADR secures enterprise AI agents through four complementary capabilities: observing agent activity, evaluating defenses, detecting threats, and preventing unsafe actions.
+
+1. **ADR Observability: Understand what AI agents are doing and why.** In production, ADR captures agent intent, tool use, and execution traces across 7+ AI coding tools on macOS, Linux, and Windows, as well as internal automation and customer-facing support agents.
+2. **ADR Benchmark: Test agent security under realistic enterprise conditions.** ADR-Bench includes 300+ tasks, 133 MCP servers, and coverage of all 17 agent attack techniques.
+3. **ADR Detection: Detect risky agent behavior efficiently.** Its two-tier architecture combines high-recall triage with deeper agentic reasoning for suspicious sessions.
+4. **ADR Prevention: Stop unsafe actions before they cause harm.** This component is not included in the current open-source release. **Stay tuned.**
 
 ## Repository layout
 
+This repository contains the open-source **ADR Sensor**, **ADR-Bench**, and **ADR Detector** described in the paper. The offline **ADR Explorer** engine, which hardens ADR Detection through pre-deployment red teaming, is not included here.
 
-| Path                                                 | Paper role               | Description                                                                          |
-| ---------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------ |
-| [Detection/](Detection/)                             | ADR Detector + ADR-Bench | Dual-agent detector, 133 MCP servers, 303 benchmark tasks, baselines, figure scripts |
-| [Sensor/](Sensor/)                                   | ADR Sensor (§3.1)        | Collect and normalize agent telemetry from Claude Code, Cursor, Codex, and others    |
-| [docs/REPRODUCIBILITY.md](docs/REPRODUCIBILITY.md)   | §5 evaluation            | Step-by-step workflow to reproduce benchmark detection and paper figures             |
-| [CITATION.cff](CITATION.cff)                         | —                        | Citation metadata for the paper                                                      |
+| Path                                               | ADR component              | Description                                                                          |
+| -------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------ |
+| [Sensor/](Sensor/)                                 | ADR Observability          | Collect and normalize agent telemetry from Claude Code, Cursor, Codex, and others    |
+| [Detection/](Detection/)                           | ADR Benchmark + Detection  | Dual-agent detector, 133 MCP servers, 303 benchmark tasks, baselines, figure scripts |
+| [docs/REPRODUCIBILITY.md](docs/REPRODUCIBILITY.md) | Evaluation                 | Step-by-step workflow to reproduce benchmark detection and paper figures             |
 
-
-## Quick start
+## Quick start: ADR Detection
 
 ```bash
 git clone https://github.com/uber/ADR
@@ -32,16 +38,16 @@ See **[docs/REPRODUCIBILITY.md](docs/REPRODUCIBILITY.md)** for the full evaluati
 
 Component documentation:
 
-- [Detection/README.md](Detection/README.md) — ADR-Bench, detector baselines, MCP infrastructure
-- [Sensor/README.md](Sensor/README.md) — telemetry collection and unified schema
+- [Sensor/README.md](Sensor/README.md): telemetry collection and unified schema
+- [Detection/README.md](Detection/README.md): ADR-Bench, detector baselines, MCP infrastructure
 
 ## Citation
 
 ```bibtex
-@article{li2026adr,
+@inproceedings{li2026adr,
   title={ADR: An Agentic Detection System for Enterprise Agentic AI Security},
   author={Li, Chenning and Hu, Pan and Xu, Justin and Ozbas, Baris and Liu, Olivia and Van, Caroline and Li, Manxue and Zhou, Wei and Alizadeh, Mohammad and Zhang, Pengyu and Sriramadhesikan, KK and Zhang, Ming},
-  journal={Ninth Conference on Machine Learning and Systems},
+  booktitle={Proceedings of the Ninth Conference on Machine Learning and Systems},
   year={2026}
 }
 ```

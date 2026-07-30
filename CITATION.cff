@@ -30,7 +30,7 @@ authors:
 url: "https://arxiv.org/abs/2605.17380"
 repository-code: "https://github.com/uber/ADR"
 preferred-citation:
-  type: article
+  type: conference-paper
   title: "ADR: An Agentic Detection System for Enterprise Agentic AI Security"
   authors:
     - family-names: "Li"
@@ -58,6 +58,6 @@ preferred-citation:
     - family-names: "Zhang"
       given-names: "Ming"
   doi: "10.48550/arXiv.2605.17380"
-  journal: "Ninth Conference on Machine Learning and Systems"
+  collection-title: "Proceedings of the Ninth Conference on Machine Learning and Systems"
   url: "https://arxiv.org/abs/2605.17380"
   date-released: "2026-05-17"
