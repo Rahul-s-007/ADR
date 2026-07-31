@@ -13,7 +13,12 @@ Usage:
     observer.display_summary(events, configs)
 """
 
-__version__ = "1.0.0"
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("adr-sensor")
+except PackageNotFoundError:
+    __version__ = "0+unknown"
 
 from .observer import AgentObserver
 from .schemas.agent_event_schema import AgentEvent, ChatMessage, ToolUsage

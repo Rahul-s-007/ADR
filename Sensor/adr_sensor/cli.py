@@ -22,12 +22,13 @@ try:
 except Exception:
     resource_mod = None
 
+from . import __version__
 from .observer import AgentObserver
 
 
 def get_version():
     """Return the version number."""
-    return "1.0.0"
+    return __version__
 
 
 def main():
