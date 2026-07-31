@@ -61,3 +61,6 @@ jobs:
 
       - name: Run tests
         run: uv run pytest tests/ -q
+
+      - name: Build distributions
+        run: uv build
