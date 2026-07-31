@@ -56,6 +56,8 @@ ADR Sensor is a Python library that collects telemetry from AI coding agents to 
 
 ### Installation
 
+Tagged releases are installed from [PyPI](https://pypi.org/project/adr-sensor/):
+
 ```bash
 pip install adr-sensor
 ```
@@ -65,7 +67,7 @@ Or install from source:
 ```bash
 git clone https://github.com/uber/ADR
 cd ADR/Sensor
-pip install -e ".[dev]"
+pip install .
 ```
 
 ### CLI Usage
@@ -264,11 +266,13 @@ adr-sensor/
 
 ## License
 
-Apache License 2.0. See [LICENSE](LICENSE) for details.
+Apache License 2.0. See the [Sensor license](https://github.com/uber/ADR/blob/main/Sensor/LICENSE) for details.
 
 ## Contributing
 
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+We welcome contributions! See the [Sensor contribution guide](https://github.com/uber/ADR/blob/main/Sensor/CONTRIBUTING.md) for guidelines.
+
+Maintainers can publish tagged releases by following the [release guide](https://github.com/uber/ADR/blob/main/docs/RELEASING.md).
 
 Especially welcome:
 
@@ -276,4 +280,3 @@ Especially welcome:
 - Detection rules and analysis patterns
 - Documentation improvements
 - Bug reports and fixes
-

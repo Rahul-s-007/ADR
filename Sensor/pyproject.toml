@@ -40,7 +40,7 @@ adr-sensor = "adr_sensor.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/uber/ADR"
-Documentation = "https://github.com/uber/ADR/tree/master/Sensor"
+Documentation = "https://github.com/uber/ADR/tree/main/Sensor"
 Repository = "https://github.com/uber/ADR"
 Issues = "https://github.com/uber/ADR/issues"
 
