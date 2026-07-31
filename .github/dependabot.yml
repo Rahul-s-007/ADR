@@ -12,12 +12,10 @@ updates:
     directory: "/Detection"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
-    # Security-only: only open PRs for known security advisories, not routine
-    # version bumps.
-    allow:
-      - dependency-type: "all"
-        update-type: "security-update"
+    # Security-only: a limit of 0 turns off routine version-update PRs.
+    # Dependabot security updates (known CVEs) are exempt from this limit and
+    # still open.
+    open-pull-requests-limit: 0
     # Ignore the benchmark's dependency stack (vendored AgentDojo + baselines,
     # pinned for reproducibility) and research-impact runtime deps (figures,
     # data fetching, model-call behavior) so they never auto-bump.
@@ -68,10 +66,7 @@ updates:
     directory: "/Sensor"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 3
-    allow:
-      - dependency-type: "all"
-        update-type: "security-update"
+    open-pull-requests-limit: 0
     labels:
       - "dependencies"
       - "python:uv"
