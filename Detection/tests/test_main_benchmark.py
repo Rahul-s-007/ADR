@@ -1,11 +1,13 @@
 """Tests for main_benchmark helpers."""
 
+import asyncio
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
-from main_benchmark import CommandBuilder, Config, MCPServerManager, TaskManager
+from main_benchmark import CommandBuilder, Config, MCPServerManager, TaskExecutor, TaskManager
 
 
 class TestConfig:
@@ -101,3 +103,63 @@ class TestConcurrencyGuard:
         with pytest.raises(ValueError, match="max_concurrent_tasks must be >= 1"):
             if max_concurrent < 1:
                 raise ValueError(f"max_concurrent_tasks must be >= 1, got {max_concurrent}")
+
+
+class TestTaskExecutorExecuteCommand:
+    """Covers _execute_command's process lifecycle, in particular that a timed-out
+    claude CLI subprocess is actually killed rather than left running (previously
+    asyncio.wait_for's timeout only cancelled the await, not the child process)."""
+
+    def _make_executor(self, tmp_path: Path, monkeypatch, max_execution_time: float) -> TaskExecutor:
+        monkeypatch.chdir(tmp_path)
+        config = Config()
+        config._config["execution"]["max_execution_time"] = max_execution_time
+        return TaskExecutor(config)
+
+    @pytest.mark.asyncio
+    async def test_kills_process_on_timeout(self, tmp_path: Path, monkeypatch):
+        executor = self._make_executor(tmp_path, monkeypatch, max_execution_time=0.05)
+
+        real_create_subprocess_exec = asyncio.create_subprocess_exec
+        spawned = {}
+
+        async def spying_create_subprocess_exec(*args, **kwargs):
+            process = await real_create_subprocess_exec(*args, **kwargs)
+            spawned["process"] = process
+            return process
+
+        monkeypatch.setattr(asyncio, "create_subprocess_exec", spying_create_subprocess_exec)
+
+        cmd = [sys.executable, "-c", "import time; time.sleep(5)"]
+        success, error_message, result = await executor._execute_command(cmd, tmp_path)
+
+        assert success is False
+        assert "timed out" in error_message.lower()
+        assert result is None
+
+        # The process must have been killed and reaped, not left running in the
+        # background after _execute_command returns.
+        process = spawned["process"]
+        assert process.returncode is not None
+
+    @pytest.mark.asyncio
+    async def test_returns_parsed_json_on_success(self, tmp_path: Path, monkeypatch):
+        executor = self._make_executor(tmp_path, monkeypatch, max_execution_time=30)
+
+        cmd = [sys.executable, "-c", "import json, sys; sys.stdout.write(json.dumps({'session_id': 'abc123'}))"]
+        success, error_message, result = await executor._execute_command(cmd, tmp_path)
+
+        assert success is True
+        assert error_message is None
+        assert result == {"session_id": "abc123"}
+
+    @pytest.mark.asyncio
+    async def test_reports_nonzero_exit_without_leaving_error_message_empty(self, tmp_path: Path, monkeypatch):
+        executor = self._make_executor(tmp_path, monkeypatch, max_execution_time=30)
+
+        cmd = [sys.executable, "-c", "import sys; sys.stderr.write('boom'); sys.exit(1)"]
+        success, error_message, result = await executor._execute_command(cmd, tmp_path)
+
+        assert success is False
+        assert "boom" in error_message
+        assert result is None

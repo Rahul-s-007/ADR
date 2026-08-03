@@ -675,11 +675,6 @@ class TaskExecutor:
                 capabilities = config.get("capabilities", [])
                 mcp_tools.extend([f"mcp__{server}__{tool}" for tool in capabilities])
 
-            claude_projects_dir = Path.home() / ".claude" / "projects"
-            existing_sessions = set()
-            if claude_projects_dir.exists():
-                existing_sessions = {f.name for f in claude_projects_dir.rglob("*.jsonl")}
-
             cmd = self.command_builder.build_claude_command(task, mcp_tools)
 
             success, error_message, result = await self._execute_command(cmd, workspace_dir)
@@ -689,9 +684,7 @@ class TaskExecutor:
 
             execution_time = time.time() - start_time
 
-            return await self._process_results(
-                workspace_dir, existing_sessions, result, execution_time
-            )
+            return await self._process_results(workspace_dir, result, execution_time)
 
         except Exception as e:
             print(f"❌ Error executing task: {e}")
@@ -781,6 +774,7 @@ class TaskExecutor:
 
     async def _execute_command(self, cmd: List[str], workspace_dir: Path) -> Tuple[bool, Optional[str], Optional[Dict[str, Any]]]:
         """Execute Claude CLI command."""
+        process = None
         try:
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -802,11 +796,19 @@ class TaskExecutor:
             return True, None, result
 
         except asyncio.TimeoutError:
+            # asyncio.wait_for() only cancels the await - it does not touch the
+            # child process, so the claude CLI (and any MCP servers it spawned)
+            # would otherwise keep running after we return. Kill and reap it,
+            # matching the kill-on-timeout behavior subprocess.run(timeout=...)
+            # already provides for the synchronous CLI invocation in adr_baseline.py.
+            if process is not None and process.returncode is None:
+                process.kill()
+                await process.wait()
             return False, "Task execution timed out", None
         except Exception as e:
             return False, str(e), None
 
-    async def _process_results(self, workspace_dir: Path, existing_sessions: set,
+    async def _process_results(self, workspace_dir: Path,
                               result: Dict[str, Any], execution_time: float) -> Tuple[bool, Optional[str], Optional[Dict[str, Any]]]:
         """Process execution results using session ID from Claude CLI JSON output."""
         session_id = result.get("session_id")
