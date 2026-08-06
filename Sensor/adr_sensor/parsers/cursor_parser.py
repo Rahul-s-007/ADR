@@ -2,12 +2,13 @@
 Parser for Cursor IDE logs.
 Extracts composerData from SQLite database.
 
-Supports both macOS and Linux paths.
+Supports macOS, Linux, and Windows paths.
 Memory-optimized: Uses cursor iteration instead of fetchall().
 Performance-optimized: Skips conversations older than 2 weeks.
 """
 
 import json
+import os
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -26,11 +27,16 @@ class CursorParser(BaseParser):
     """Parser for Cursor SQLite database logs."""
 
     def __init__(self, max_age_days: int = MAX_CONVERSATION_AGE_DAYS):
-        # Support macOS and Linux paths
+        # Support macOS, Linux, and Windows paths
         macos_path = Path.home() / "Library/Application Support/Cursor/User/globalStorage/state.vscdb"
         linux_path = Path.home() / ".config/Cursor/User/globalStorage/state.vscdb"
+        appdata = os.environ.get("APPDATA")
+        windows_path = Path(appdata) / "Cursor/User/globalStorage/state.vscdb" if appdata else None
+
         if macos_path.exists():
             self.db_path = macos_path
+        elif windows_path is not None and windows_path.exists():
+            self.db_path = windows_path
         else:
             self.db_path = linux_path
         self.max_age_days = max_age_days

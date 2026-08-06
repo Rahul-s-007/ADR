@@ -2,10 +2,11 @@
 Parser for Cline (Claude Dev) logs.
 Reads JSON files from the Cline extension's task directories.
 
-Supports both macOS and Linux paths.
+Supports macOS, Linux, and Windows paths.
 """
 
 import json
+import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,7 +21,7 @@ class ClineParser(BaseParser):
     """Parser for Cline (Claude Dev) logs."""
 
     def __init__(self):
-        # Support macOS and Linux paths
+        # Support macOS, Linux, and Windows paths
         macos_path = (
             Path.home()
             / "Library/Application Support/Cursor/User/globalStorage/saoudrizwan.claude-dev/tasks"
@@ -28,7 +29,17 @@ class ClineParser(BaseParser):
         linux_path = (
             Path.home() / ".config/Cursor/User/globalStorage/saoudrizwan.claude-dev/tasks"
         )
-        self.base_path = macos_path if macos_path.exists() else linux_path
+        appdata = os.environ.get("APPDATA")
+        windows_path = (
+            Path(appdata) / "Cursor/User/globalStorage/saoudrizwan.claude-dev/tasks" if appdata else None
+        )
+
+        if macos_path.exists():
+            self.base_path = macos_path
+        elif windows_path is not None and windows_path.exists():
+            self.base_path = windows_path
+        else:
+            self.base_path = linux_path
 
     def parse_all(self) -> List[AgentEvent]:
         """Parse all available Cline logs."""

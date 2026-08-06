@@ -10,14 +10,14 @@ ADR Sensor is a Python library that collects telemetry from AI coding agents to 
 ## Supported AI Agents
 
 
-| Agent                         | Log Format                    | Platform     |
-| ----------------------------- | ----------------------------- | ------------ |
-| **Claude Code**               | JSONL (`~/.claude/projects/`) | macOS, Linux |
-| **Cursor IDE**                | SQLite (`state.vscdb`)        | macOS, Linux |
-| **Cline (Claude Dev)**        | JSON task files               | macOS, Linux |
-| **Claude Desktop Agent Mode** | JSONL audit logs              | macOS        |
-| **OpenAI Codex CLI**          | JSONL (`~/.codex/sessions/`)  | macOS, Linux |
-| **Warp Terminal**             | SQLite (`warp.sqlite`)        | macOS        |
+| Agent                         | Log Format                    | Platform              |
+| ----------------------------- | ----------------------------- | --------------------- |
+| **Claude Code**               | JSONL (`~/.claude/projects/`) | macOS, Linux          |
+| **Cursor IDE**                | SQLite (`state.vscdb`)        | macOS, Linux, Windows |
+| **Cline (Claude Dev)**        | JSON task files               | macOS, Linux, Windows |
+| **Claude Desktop Agent Mode** | JSONL audit logs              | macOS                 |
+| **OpenAI Codex CLI**          | JSONL (`~/.codex/sessions/`)  | macOS, Linux          |
+| **Warp Terminal**             | SQLite (`warp.sqlite`)        | macOS                 |
 
 
 ## Architecture

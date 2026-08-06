@@ -12,6 +12,7 @@ import pytest
 from adr_sensor.parsers.claude_parser import ClaudeParser
 from adr_sensor.parsers.cline_parser import ClineParser
 from adr_sensor.parsers.codex_parser import CodexParser
+from adr_sensor.parsers.cursor_parser import CursorParser
 from adr_sensor.parsers.warp_parser import WarpParser
 
 
@@ -98,7 +99,180 @@ class TestClaudeParser:
         assert "[truncated" in result["long"]
 
 
+def _build_cursor_db(db_path: Path, conversations: list) -> None:
+    """Create a synthetic Cursor state.vscdb matching the cursorDiskKV schema
+    CursorParser queries. Each item in `conversations` is a dict with keys:
+        conv_id, metadata (dict with createdAt/lastUpdatedAt), bubbles (list of dicts)
+    """
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.cursor()
+    cursor.execute("CREATE TABLE cursorDiskKV (key TEXT PRIMARY KEY, value TEXT)")
+
+    for conv in conversations:
+        conv_id = conv["conv_id"]
+        if conv.get("metadata") is not None:
+            cursor.execute(
+                "INSERT INTO cursorDiskKV VALUES (?, ?)",
+                (f"composerData:{conv_id}", json.dumps(conv["metadata"])),
+            )
+        for bubble in conv.get("bubbles", []):
+            bubble_id = bubble["_bubble_id"]
+            cursor.execute(
+                "INSERT INTO cursorDiskKV VALUES (?, ?)",
+                (f"bubbleId:{conv_id}:{bubble_id}", json.dumps(bubble)),
+            )
+
+    conn.commit()
+    conn.close()
+
+
+class TestCursorParser:
+    def _make_fake_home(self, tmp_path: Path) -> Path:
+        fake_home = tmp_path / "home"
+        fake_home.mkdir()
+        return fake_home
+
+    def test_prefers_macos_path_even_when_appdata_also_has_one(self, tmp_path, monkeypatch):
+        """macOS detection must take precedence, matching the pre-existing
+        macOS-first behavior - this is a regression guard for the new
+        Windows branch, not a statement about which platform "should" win."""
+        fake_home = self._make_fake_home(tmp_path)
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+
+        macos_db = fake_home / "Library/Application Support/Cursor/User/globalStorage/state.vscdb"
+        macos_db.parent.mkdir(parents=True)
+        macos_db.write_bytes(b"")
+
+        appdata_dir = tmp_path / "appdata"
+        windows_db = appdata_dir / "Cursor/User/globalStorage/state.vscdb"
+        windows_db.parent.mkdir(parents=True)
+        windows_db.write_bytes(b"")
+        monkeypatch.setenv("APPDATA", str(appdata_dir))
+
+        parser = CursorParser()
+        assert parser.db_path == macos_db
+
+    def test_selects_windows_path_when_appdata_set_and_exists(self, tmp_path, monkeypatch):
+        fake_home = self._make_fake_home(tmp_path)
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+
+        appdata_dir = tmp_path / "appdata"
+        windows_db = appdata_dir / "Cursor/User/globalStorage/state.vscdb"
+        windows_db.parent.mkdir(parents=True)
+        windows_db.write_bytes(b"")
+        monkeypatch.setenv("APPDATA", str(appdata_dir))
+
+        parser = CursorParser()
+        assert parser.db_path == windows_db
+
+    def test_falls_back_to_linux_path_when_nothing_exists(self, tmp_path, monkeypatch):
+        """No macOS path, no APPDATA at all - must not crash, and must fall
+        through to the Linux path (pre-existing default-fallback behavior)."""
+        fake_home = self._make_fake_home(tmp_path)
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        monkeypatch.delenv("APPDATA", raising=False)
+
+        parser = CursorParser()
+        assert parser.db_path == fake_home / ".config/Cursor/User/globalStorage/state.vscdb"
+
+    def test_falls_back_to_linux_when_appdata_set_but_path_missing(self, tmp_path, monkeypatch):
+        """APPDATA is set (as it would be on any real Windows machine) but no
+        Cursor install lives there - must fall through, not falsely select
+        a nonexistent Windows path."""
+        fake_home = self._make_fake_home(tmp_path)
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        monkeypatch.setenv("APPDATA", str(tmp_path / "appdata_without_cursor"))
+
+        parser = CursorParser()
+        assert parser.db_path == fake_home / ".config/Cursor/User/globalStorage/state.vscdb"
+
+    def test_parse_all_no_database(self, tmp_path):
+        """Test parse_all when the database file doesn't exist."""
+        parser = CursorParser()
+        parser.db_path = tmp_path / "nonexistent.vscdb"
+        entries = parser.parse_all()
+        assert entries == []
+
+    def test_parses_conversation_content(self, tmp_path):
+        """Recent conversations should parse into chat history correctly."""
+        now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+        conversations = [
+            {
+                "conv_id": "conv1",
+                "metadata": {"createdAt": now_ms, "lastUpdatedAt": now_ms},
+                "bubbles": [
+                    {"type": 1, "text": "Write a hello world script", "_bubble_id": "b1"},
+                    {"type": 2, "text": "Sure, here it is.", "_bubble_id": "b2"},
+                ],
+            }
+        ]
+        db_path = tmp_path / "state.vscdb"
+        _build_cursor_db(db_path, conversations)
+
+        parser = CursorParser()
+        parser.db_path = db_path
+        entries = parser.parse_all()
+
+        assert len(entries) == 1
+        entry = entries[0]
+        assert entry.source == "cursor"
+        assert entry.session_id == "cursor_conv1"
+        assert len(entry.chat_history) == 2
+        assert entry.chat_history[0].role == "user"
+        assert "hello world" in entry.chat_history[0].content
+        assert entry.chat_history[1].role == "assistant"
+        assert "here it is" in entry.chat_history[1].content
+
+
 class TestClineParser:
+    def _make_fake_home(self, tmp_path: Path) -> Path:
+        fake_home = tmp_path / "home"
+        fake_home.mkdir()
+        return fake_home
+
+    def test_prefers_macos_path_even_when_appdata_also_has_one(self, tmp_path, monkeypatch):
+        fake_home = self._make_fake_home(tmp_path)
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+
+        macos_tasks = fake_home / "Library/Application Support/Cursor/User/globalStorage/saoudrizwan.claude-dev/tasks"
+        macos_tasks.mkdir(parents=True)
+
+        appdata_dir = tmp_path / "appdata"
+        windows_tasks = appdata_dir / "Cursor/User/globalStorage/saoudrizwan.claude-dev/tasks"
+        windows_tasks.mkdir(parents=True)
+        monkeypatch.setenv("APPDATA", str(appdata_dir))
+
+        parser = ClineParser()
+        assert parser.base_path == macos_tasks
+
+    def test_selects_windows_path_when_appdata_set_and_exists(self, tmp_path, monkeypatch):
+        fake_home = self._make_fake_home(tmp_path)
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+
+        appdata_dir = tmp_path / "appdata"
+        windows_tasks = appdata_dir / "Cursor/User/globalStorage/saoudrizwan.claude-dev/tasks"
+        windows_tasks.mkdir(parents=True)
+        monkeypatch.setenv("APPDATA", str(appdata_dir))
+
+        parser = ClineParser()
+        assert parser.base_path == windows_tasks
+
+    def test_falls_back_to_linux_path_when_nothing_exists(self, tmp_path, monkeypatch):
+        fake_home = self._make_fake_home(tmp_path)
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        monkeypatch.delenv("APPDATA", raising=False)
+
+        parser = ClineParser()
+        assert parser.base_path == fake_home / ".config/Cursor/User/globalStorage/saoudrizwan.claude-dev/tasks"
+
+    def test_falls_back_to_linux_when_appdata_set_but_path_missing(self, tmp_path, monkeypatch):
+        fake_home = self._make_fake_home(tmp_path)
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        monkeypatch.setenv("APPDATA", str(tmp_path / "appdata_without_cursor"))
+
+        parser = ClineParser()
+        assert parser.base_path == fake_home / ".config/Cursor/User/globalStorage/saoudrizwan.claude-dev/tasks"
+
     def test_parse_cline_log(self, tmp_path):
         """Test parsing a Cline task directory."""
         task_dir = tmp_path / "1234567890"
