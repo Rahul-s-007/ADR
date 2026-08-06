@@ -1,7 +1,9 @@
 """Tests for main_benchmark helpers."""
 
 import asyncio
+import os
 import sys
+import time
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -141,6 +143,77 @@ class TestTaskExecutorExecuteCommand:
         # background after _execute_command returns.
         process = spawned["process"]
         assert process.returncode is not None
+
+    @staticmethod
+    def _wait_until_process_gone(pid: int, timeout: float = 3.0) -> bool:
+        """Poll until a pid is fully reaped rather than asserting immediately -
+        os.kill(pid, 0) on a not-yet-reaped zombie still succeeds, so a single
+        check right after sending the kill signal can be a false negative."""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                return True
+            except PermissionError:
+                return False
+            time.sleep(0.1)
+        return False
+
+    @pytest.mark.asyncio
+    @pytest.mark.skipif(os.name != "posix", reason="process-group kill is POSIX-only")
+    async def test_kills_grandchild_process_holding_inherited_stdio(self, tmp_path: Path, monkeypatch):
+        """A descendant that inherits the CLI's stdout/stderr pipes must also be
+        killed on timeout - process.kill() alone only signals the direct child,
+        and a surviving descendant holding those pipes open can block
+        process.wait() indefinitely instead of just leaking (see PR #20 review)."""
+        executor = self._make_executor(tmp_path, monkeypatch, max_execution_time=0.2)
+
+        real_create_subprocess_exec = asyncio.create_subprocess_exec
+        spawned = {}
+
+        async def spying_create_subprocess_exec(*args, **kwargs):
+            process = await real_create_subprocess_exec(*args, **kwargs)
+            spawned["process"] = process
+            return process
+
+        monkeypatch.setattr(asyncio, "create_subprocess_exec", spying_create_subprocess_exec)
+
+        pidfile = tmp_path / "grandchild.pid"
+        # The direct child spawns its own child ("grandchild") without
+        # redirecting its stdout/stderr, so it inherits the same pipes
+        # asyncio set up for the direct child - reproducing the scenario
+        # where a descendant keeps those pipes open past the timeout.
+        script = (
+            "import subprocess, sys, time\n"
+            "gc = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])\n"
+            "open(sys.argv[1], 'w').write(str(gc.pid))\n"
+            "time.sleep(30)\n"
+        )
+        cmd = [sys.executable, "-c", script, str(pidfile)]
+
+        start = time.monotonic()
+        success, error_message, result = await executor._execute_command(cmd, tmp_path)
+        elapsed = time.monotonic() - start
+
+        assert success is False
+        assert "timed out" in error_message.lower()
+
+        # Must return promptly, not hang for anywhere near the grandchild's
+        # 30s sleep - proves process.wait() wasn't blocked on inherited pipes.
+        assert elapsed < 10
+
+        process = spawned["process"]
+        assert process.returncode is not None
+
+        for _ in range(30):
+            if pidfile.exists():
+                break
+            await asyncio.sleep(0.1)
+        assert pidfile.exists(), "grandchild never reported its pid"
+
+        grandchild_pid = int(pidfile.read_text())
+        assert self._wait_until_process_gone(grandchild_pid), "grandchild process was left running"
 
     @pytest.mark.asyncio
     async def test_returns_parsed_json_on_success(self, tmp_path: Path, monkeypatch):
