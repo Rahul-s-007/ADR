@@ -2,7 +2,7 @@
 Parser for Cursor IDE logs.
 Extracts composerData from SQLite database.
 
-Supports both macOS and Linux paths.
+Supports macOS, Linux and Windows paths.
 Memory-optimized: Uses cursor iteration instead of fetchall().
 Performance-optimized: Skips conversations older than 2 weeks.
 """
@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional
 
 from ..schemas.agent_event_schema import AgentEvent, ChatMessage, ToolUsage
+from ..utils.platform_paths import windows_appdata
 from ..utils.string_utils import truncate_middle
 from ..utils.timestamp_utils import normalize_timestamp
 from .base_parser import BaseParser
@@ -21,18 +22,22 @@ from .base_parser import BaseParser
 DB_BATCH_SIZE = 500
 MAX_CONVERSATION_AGE_DAYS = 14
 
+# Path to Cursor's global storage database, relative to the per-platform app-data root.
+_CURSOR_STORAGE_SUFFIX = "Cursor/User/globalStorage/state.vscdb"
+
 
 class CursorParser(BaseParser):
     """Parser for Cursor SQLite database logs."""
 
+    #: Candidate database locations, checked in order.
+    DB_PATHS = [
+        Path.home() / "Library/Application Support" / _CURSOR_STORAGE_SUFFIX,  # macOS
+        Path.home() / ".config" / _CURSOR_STORAGE_SUFFIX,  # Linux
+        windows_appdata() / _CURSOR_STORAGE_SUFFIX,  # Windows (%APPDATA%)
+    ]
+
     def __init__(self, max_age_days: int = MAX_CONVERSATION_AGE_DAYS):
-        # Support macOS and Linux paths
-        macos_path = Path.home() / "Library/Application Support/Cursor/User/globalStorage/state.vscdb"
-        linux_path = Path.home() / ".config/Cursor/User/globalStorage/state.vscdb"
-        if macos_path.exists():
-            self.db_path = macos_path
-        else:
-            self.db_path = linux_path
+        self.db_path = next((p for p in self.DB_PATHS if p.exists()), self.DB_PATHS[0])
         self.max_age_days = max_age_days
 
     def parse_all(self) -> List[AgentEvent]:
