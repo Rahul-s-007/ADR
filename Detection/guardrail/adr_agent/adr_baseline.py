@@ -54,6 +54,7 @@ _BIDI_OVERRIDE_CHARS = frozenset('‭‮')
 _BIDI_EMBED_CHARS = frozenset('‪‫‬')
 _BIDI_ISOLATE_CHARS = frozenset('⁦⁧⁨⁩')
 _BIDI_ALL_CHARS = _BIDI_OVERRIDE_CHARS | _BIDI_EMBED_CHARS | _BIDI_ISOLATE_CHARS
+_BIDI_ALL_RE = re.compile('[' + ''.join(_BIDI_ALL_CHARS) + ']')
 
 # Deliberately NOT flagged: zero-width space (U+200B) has real legitimate
 # use as a word-break hint in Thai/Lao/Khmer text; ZWJ/ZWNJ are required
@@ -68,9 +69,17 @@ def _detect_unicode_obfuscation(text: str) -> Optional[Dict[str, Any]]:
     instructions past human review while remaining fully readable to an LLM.
 
     Returns None if nothing found, else a dict describing what fired.
+
+    Isolate characters (U+2066-U+2069) alone are NOT sufficient to trigger a
+    finding: they're the current Unicode-recommended mechanism for
+    legitimately mixing LTR/RTL text (e.g. bidi-aware address books wrapping
+    a phone number), so isolate-only text is real, ordinary content, not an
+    obfuscation attempt. They're still reported/counted once tag-block,
+    override, or embed characters are also present, as corroborating
+    evidence for those stronger signals.
     """
     tag_runs = _TAG_BLOCK_PRINTABLE_RE.findall(text)
-    bidi_hits = [c for c in text if c in _BIDI_ALL_CHARS]
+    bidi_hits = _BIDI_ALL_RE.findall(text)
 
     if not tag_runs and not bidi_hits:
         return None
@@ -79,6 +88,10 @@ def _detect_unicode_obfuscation(text: str) -> Optional[Dict[str, Any]]:
     bidi_overrides = [c for c in bidi_hits if c in _BIDI_OVERRIDE_CHARS]
     bidi_embeds = [c for c in bidi_hits if c in _BIDI_EMBED_CHARS]
     bidi_isolates = [c for c in bidi_hits if c in _BIDI_ISOLATE_CHARS]
+
+    if not tag_runs and not bidi_overrides and not bidi_embeds:
+        # Isolates only - not a standalone trigger, see docstring.
+        return None
 
     return {
         'tag_block_count': sum(len(r) for r in tag_runs),
@@ -145,7 +158,11 @@ class ADSConfig:
         self.triage_config = framework_config.get('triage_llm', {})
         self.reasoning_config = framework_config.get('reasoning_agent', {})
 
-        # Flag to enable/disable triage stage (useful for debugging)
+        # Flag to enable/disable triage stage (useful for debugging).
+        # Note: this also bypasses the deterministic Unicode-obfuscation
+        # pre-filter in TriageLLM.analyze(), since it lives inside the
+        # triage stage - intentional, since disabling triage means
+        # measuring the reasoning-agent-only path.
         self.enable_triage = framework_config.get('enable_triage', True)
 
         # Feature toggles for ablations (read from reasoning_agent section)
@@ -546,7 +563,12 @@ CONFIDENCE: [0.0-1.0]"""
 
         for msg in messages:  # Use ALL messages for high recall
             role = msg.get('role', 'unknown')
-            content = msg.get('content', '')  # Full content, no truncation
+            # `or ''` also covers content explicitly set to None (key present,
+            # value None), which .get()'s default alone would not catch and
+            # would otherwise crash on .strip() below. Pre-existing gap this
+            # function now needs to be robust to, since the deterministic
+            # Unicode filter (added above) is a new consumer of its output.
+            content = msg.get('content', '') or ''  # Full content, no truncation
             if content.strip():
                 formatted.append(f"{role}: {content}")
         return "\n".join(formatted)

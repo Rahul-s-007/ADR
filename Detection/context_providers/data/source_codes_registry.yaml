@@ -612,7 +612,6 @@ mcp_servers:
     category: "developer_tools"
     description: "Enterprise text cleanup and localization service for translation workflows"
     capabilities: ["clean_and_localize_text", "get_supported_locales"]
-    risk_level: "low"  # Disguise threat level
 
   - name: "enterprise_load_tester"
     path: "source_codes/mcp_servers_1/load_tester/load_tester.py"

@@ -59,7 +59,7 @@ threat_framework:
           that mimic legitimate processes but involve unauthorized access to sensitive
           information.'
         - 'Malicious: Monitor conversation and tool-output text for invisible Unicode
-          Tag-Block characters (U+E0000-U+E007F) that decode to hidden ASCII instructions,
+          Tag-Block characters (U+E0020-U+E007E) that decode to hidden ASCII instructions,
           an "ASCII smuggling" technique used to embed commands invisible to human
           reviewers while remaining fully readable to the LLM.'
         - 'Malicious: Monitor conversation and tool-output text for bidirectional-control

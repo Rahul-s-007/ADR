@@ -402,7 +402,8 @@ class SessionManager:
             if message_data["role"] == "user":
                 message_data["message_type"] = "user_prompt" if line_num == 1 else "tool_result"
                 content = msg.get("content", "")
-                message_data["content"] = self._truncate_content(content)
+                extracted = self._extract_text_from_content(content, raw_message.get("toolUseResult"))
+                message_data["content"] = self._truncate_content(extracted)
 
             elif message_data["role"] == "assistant":
                 content = msg.get("content", [])
@@ -416,6 +417,35 @@ class SessionManager:
             message_data["content"] = f"System message: {raw_message.get('cwd', 'unknown')}"
 
         return message_data
+
+    def _extract_text_from_content(self, content: Any, tool_use_result: Any = None) -> str:
+        """Extract plain text from Claude Code message content (str, or a list
+        of content blocks e.g. tool_result/text), mirroring the proven pattern
+        in Sensor/adr_sensor/parsers/claude_parser.py's _normalize_result_content.
+
+        Falls back to str() only for genuinely unexpected shapes, so real text
+        (including any embedded Unicode) survives instead of being silently
+        replaced by a Python repr() of the raw list/dict structure - repr()
+        escapes non-printable Unicode (e.g. Tag Block "ASCII smuggling"
+        characters) into literal backslash text, irreversibly losing the
+        original codepoints before this is ever written to disk.
+        """
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            parts = []
+            for item in content:
+                if not isinstance(item, dict):
+                    continue
+                if item.get("type") == "tool_result":
+                    inner = item.get("content", "")
+                    if isinstance(tool_use_result, dict):
+                        inner = tool_use_result.get("result", inner)
+                    parts.append(self._extract_text_from_content(inner))
+                elif item.get("type") == "text":
+                    parts.append(item.get("text", ""))
+            return "\n".join(p for p in parts if p)
+        return str(content) if content else ""
 
     def _truncate_content(self, content: str, max_length: int = 10000) -> str:
         """Truncate content to specified length."""
