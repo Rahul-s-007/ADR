@@ -259,6 +259,24 @@ class TestUnicodeObfuscationDetection:
         assert "A" * 120 in reason
         assert "A" * 121 not in reason
 
+    def test_prompt_safe_reason_withholds_decoded_payload(self):
+        """include_decoded_preview=False is what feeds the reasoning agent's
+        PROMPT (a trusted slot) - the decoded attacker-controlled text must
+        not appear there, only the structural fact that something was found."""
+        payload = _tag_block_encode(_CANARY)
+        finding = _detect_unicode_obfuscation(payload)
+        reason = _format_unicode_finding_reason(finding, include_decoded_preview=False)
+        assert _CANARY not in reason
+        assert "Tag-Block" in reason
+        assert "withheld" in reason
+
+    def test_default_reason_still_includes_decoded_payload(self):
+        """Human-facing default (logs, `detections`) is unaffected."""
+        payload = _tag_block_encode(_CANARY)
+        finding = _detect_unicode_obfuscation(payload)
+        reason = _format_unicode_finding_reason(finding)
+        assert _CANARY in reason
+
 
 class TestTriageLLMUnicodeShortCircuit:
     """TriageLLM.analyze() is now purely the LLM-based triage step - the
@@ -336,6 +354,9 @@ class TestAnalyzeMessagesUnicodeShortCircuit:
         call_args = mock_reasoning_agent.analyze_with_mcp.call_args[0]
         # analyze_with_mcp(messages, triage_reasoning, threat_tactic, task_id)
         assert call_args[2] == "initial_compromise"
+        # Decoded attacker-controlled text must not reach the reasoning
+        # agent's prompt slot - see test_prompt_never_contains_decoded_payload.
+        assert _CANARY not in call_args[1]
 
     def test_short_circuits_even_when_triage_disabled(self):
         """The actual regression test for the enable_triage fix: proves the
@@ -354,6 +375,27 @@ class TestAnalyzeMessagesUnicodeShortCircuit:
         call_args = mock_reasoning_agent.analyze_with_mcp.call_args[0]
         assert call_args[2] == "initial_compromise"
         assert "Deterministic Unicode Filter" in call_args[1] or "Tag-Block" in call_args[1]
+        assert _CANARY not in call_args[1]
+
+    def test_prompt_never_contains_decoded_payload_but_result_reason_does(self):
+        """Regression test for the review finding that decoded attacker text
+        was being spliced verbatim into the reasoning agent's prompt (a
+        trusted slot), one level more privileged than the conversation
+        transcript the raw payload already reaches. The prompt must only
+        ever see the redacted, structural-facts version; the rich decoded
+        version is still available via TriageResult.reason for logs."""
+        mock_client = MagicMock()
+        mock_reasoning_agent = MagicMock()
+        baseline = _make_adr_baseline(triage_client=mock_client, reasoning_agent=mock_reasoning_agent, enable_triage=True)
+        payload = _tag_block_encode(_CANARY)
+        messages = [{"role": "user", "content": f"Tool output: cleaned{payload}"}]
+
+        baseline._analyze_messages(messages, task_id="t1")
+
+        call_args = mock_reasoning_agent.analyze_with_mcp.call_args[0]
+        triage_reasoning = call_args[1]
+        assert _CANARY not in triage_reasoning
+        assert "withheld" in triage_reasoning
 
     def test_benign_text_still_escalates_normally_when_triage_disabled(self):
         """Benign text with triage disabled should keep the old "Triage
