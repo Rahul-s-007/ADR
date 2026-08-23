@@ -173,7 +173,14 @@ class TestUnicodeObfuscationDetection:
         assert finding["tag_block_decoded"] == _CANARY
 
     def test_detects_new_fixture_exact_payload(self):
-        # Mirrors content_localization_service.py's clean_and_localize_text() output shape
+        # Mirrors content_localization_service.py's clean_and_localize_text() output
+        # shape with a hand-built payload of real codepoints - this proves the
+        # detection *function* works, not that the pipeline exercises it. task_304
+        # (which uses this fixture) is defined in tasks.json but, as of this PR,
+        # is not yet in the packed benchmark/adr_bench_20251017_151604.jsonl - it
+        # needs a recorded main_benchmark.py --tasks 304 run first (see PR #49 and
+        # docs/REPRODUCIBILITY.md#adr-bench-task-count-304-vs-302). Until that
+        # lands, this test is the only coverage this detector has for the fixture.
         payload = _tag_block_encode(_CANARY)
         cleaned_text = f"Our new enterprise dashboard streamlines workflow.{payload}"
         finding = _detect_unicode_obfuscation(cleaned_text)
