@@ -70,7 +70,10 @@ _BIDI_ALL_RE = re.compile('[' + ''.join(_BIDI_ALL_CHARS) + ']')
 # currently packed benchmark, including the one malicious task it exists
 # to catch (PR #48 review finding).
 _BIDI_ESCAPED_RE = re.compile(r'\\u(202[a-eA-E]|206[6-9])')
-_TAG_BLOCK_ESCAPED_RE = re.compile(r'\\U000[eE]00([2-7][0-9a-fA-F])')
+# Second hex digit capped at 'e' when the first is '7', to exclude
+# \U000e007f (U+E007F, "cancel tag") - not printable, excluded by the
+# real-codepoint regex above (\U000E0020-\U000E007E) for the same reason.
+_TAG_BLOCK_ESCAPED_RE = re.compile(r'\\U000[eE]00([2-6][0-9a-fA-F]|7[0-9a-eA-E])')
 
 # Deliberately NOT flagged: zero-width space (U+200B) has real legitimate
 # use as a word-break hint in Thai/Lao/Khmer text; ZWJ/ZWNJ are required

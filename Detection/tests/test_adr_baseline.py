@@ -328,6 +328,15 @@ class TestUnicodeObfuscationEscapedLiteralForm:
         text = 'wrapped: "\\u2066+1 (555) 123-4567\\u2069"'
         assert _detect_unicode_obfuscation(text) is None
 
+    def test_escaped_tag_block_excludes_cancel_marker(self):
+        # \U000e007f == U+E007F ("cancel tag") - excluded by the real-codepoint
+        # regex as non-printable; the escaped-form regex must exclude it too.
+        assert _detect_unicode_obfuscation('trailing \\U000e007f marker') is None
+        # But the boundary just below it (U+E007E, '~') must still match.
+        finding = _detect_unicode_obfuscation('within range \\U000e007e')
+        assert finding is not None
+        assert finding["tag_block_decoded"] == "~"
+
     def test_plain_backslash_u_text_not_confused_with_arbitrary_escapes(self):
         # Only the specific bidi/tag-block ranges match - ordinary escaped
         # unicode text elsewhere (e.g. é for 'é') must not false-positive.
