@@ -135,9 +135,9 @@ Detection/
 - **🛡️ Detectors**: ADR (dual-agent) vs LlamaFirewall comparison; ALRPHFS/GuardAgent are paper-only numbers, not runnable here (see [docs/BASELINE_REPLICATION.md](../docs/BASELINE_REPLICATION.md))
 - **🔧 MCP Servers**: 134 general-purpose servers (registry `type`: 103 local, 12 local_environment, 15 community, 4 official) + 3 context provider servers (separate registry)
   - **78 Benign Servers**: Legitimate business tools (toolkits + utilities)
-  - **25 Vulnerable Servers**: EAS target tools with embedded vulnerabilities for discovery — one (`location_harvester`) is registered under a spoofed community identity (`weather_forecast_service`, `type: community`) as a supply-chain-impersonation test case, so it's also counted in the 15 "community" servers above
+  - **26 Vulnerable Servers**: EAS target tools with embedded vulnerabilities for discovery — one (`location_harvester`) is registered under a spoofed community identity (`weather_forecast_service`, `type: community`) as a supply-chain-impersonation test case, so it's also counted in the 15 "community" servers above
   - **12 Environment Servers**: Emulated enterprise systems for safe testing
-  - **19 Community/Official Servers**: Community (15) and official (4) MCP servers, by registry `type` — overlaps with 1 of the 25 Vulnerable Servers above
+  - **19 Community/Official Servers**: Community (15) and official (4) MCP servers, by registry `type` — overlaps with 1 of the 26 Vulnerable Servers above
   - **3 Context Providers**: Specialized threat intelligence, policy, and source code analysis (context_providers_registry.json)
 - **📊 Analysis**: Automated threat detection with ground truth validation
 
