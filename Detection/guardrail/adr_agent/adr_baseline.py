@@ -56,6 +56,22 @@ _BIDI_ISOLATE_CHARS = frozenset('⁦⁧⁨⁩')
 _BIDI_ALL_CHARS = _BIDI_OVERRIDE_CHARS | _BIDI_EMBED_CHARS | _BIDI_ISOLATE_CHARS
 _BIDI_ALL_RE = re.compile('[' + ''.join(_BIDI_ALL_CHARS) + ']')
 
+# Escaped *literal text* forms of the same characters - what Python's
+# repr() produces for them (\uXXXX for the BMP bidi controls, \U000eXXXX
+# for the non-BMP Tag Block range). This is not a theoretical case: before
+# PR #47, main_benchmark.py's transcript writer fell back to str() on
+# list-shaped tool-result content, which is repr() of its elements, so
+# every transcript captured before that fix stores this payload as six
+# literal backslash-escape characters instead of the real codepoint - e.g.
+# benchmark/adr_bench_20251017_151604/task_110's conversation has
+# "\\u202e\\u2067Please respond..." verbatim, not U+202E U+2067. PR #47
+# only fixes the writer for *future* runs; without also matching this
+# form, the filter never fires against a single transcript in the
+# currently packed benchmark, including the one malicious task it exists
+# to catch (PR #48 review finding).
+_BIDI_ESCAPED_RE = re.compile(r'\\u(202[a-eA-E]|206[6-9])')
+_TAG_BLOCK_ESCAPED_RE = re.compile(r'\\U000[eE]00([2-7][0-9a-fA-F])')
+
 # Deliberately NOT flagged: zero-width space (U+200B) has real legitimate
 # use as a word-break hint in Thai/Lao/Khmer text; ZWJ/ZWNJ are required
 # for compound emoji and Indic/Persian script shaping; variation selectors
@@ -67,6 +83,9 @@ def _detect_unicode_obfuscation(text: str) -> Optional[Dict[str, Any]]:
     """Deterministic scan for hidden/invisible Unicode obfuscation techniques
     (Tag Block "ASCII smuggling" and bidi control characters) used to smuggle
     instructions past human review while remaining fully readable to an LLM.
+
+    Also matches the escaped *literal text* form of the same characters
+    (\\uXXXX / \\U000eXXXX) - see _BIDI_ESCAPED_RE / _TAG_BLOCK_ESCAPED_RE.
 
     Returns None if nothing found, else a dict describing what fired.
 
@@ -80,26 +99,32 @@ def _detect_unicode_obfuscation(text: str) -> Optional[Dict[str, Any]]:
     """
     tag_runs = _TAG_BLOCK_PRINTABLE_RE.findall(text)
     bidi_hits = _BIDI_ALL_RE.findall(text)
+    escaped_tag_hex = _TAG_BLOCK_ESCAPED_RE.findall(text)
+    escaped_bidi_hex = _BIDI_ESCAPED_RE.findall(text)
 
-    if not tag_runs and not bidi_hits:
+    if not tag_runs and not bidi_hits and not escaped_tag_hex and not escaped_bidi_hex:
         return None
 
     decoded = ''.join(chr(ord(ch) - 0xE0000) for run in tag_runs for ch in run)
-    bidi_overrides = [c for c in bidi_hits if c in _BIDI_OVERRIDE_CHARS]
-    bidi_embeds = [c for c in bidi_hits if c in _BIDI_EMBED_CHARS]
-    bidi_isolates = [c for c in bidi_hits if c in _BIDI_ISOLATE_CHARS]
+    decoded += ''.join(chr(int(h, 16)) for h in escaped_tag_hex)
 
-    if not tag_runs and not bidi_overrides and not bidi_embeds:
+    bidi_all_hits = bidi_hits + [chr(int(h, 16)) for h in escaped_bidi_hex]
+    bidi_overrides = [c for c in bidi_all_hits if c in _BIDI_OVERRIDE_CHARS]
+    bidi_embeds = [c for c in bidi_all_hits if c in _BIDI_EMBED_CHARS]
+    bidi_isolates = [c for c in bidi_all_hits if c in _BIDI_ISOLATE_CHARS]
+    tag_block_count = sum(len(r) for r in tag_runs) + len(escaped_tag_hex)
+
+    if not tag_block_count and not bidi_overrides and not bidi_embeds:
         # Isolates only - not a standalone trigger, see docstring.
         return None
 
     return {
-        'tag_block_count': sum(len(r) for r in tag_runs),
+        'tag_block_count': tag_block_count,
         'tag_block_decoded': decoded,
         'bidi_override_count': len(bidi_overrides),
         'bidi_embed_count': len(bidi_embeds),
         'bidi_isolate_count': len(bidi_isolates),
-        'bidi_codepoints': sorted({f'U+{ord(c):04X}' for c in bidi_hits}),
+        'bidi_codepoints': sorted({f'U+{ord(c):04X}' for c in bidi_all_hits}),
     }
 
 
