@@ -146,9 +146,15 @@ def _format_unicode_finding_reason(finding: Dict[str, Any], *, include_decoded_p
     """Human-readable reason string for a _detect_unicode_obfuscation() finding.
 
     include_decoded_preview controls whether the decoded Tag-Block text is
-    quoted inline. Default True is for human-facing output (logs, the
-    `detections` field) - the decoded payload is explicitly labeled as
-    quoted evidence, not an instruction.
+    quoted inline. Default True is for human-facing output: logged via
+    logger.warning() at the point ADRBaseline._analyze_messages constructs
+    the deterministic filter's TriageResult, and threaded through as
+    `deterministic_filter_evidence` into the reasoning agent's debug JSON
+    (ReasoningAgent._invoke_claude_reasoning) - not the `detections` field,
+    which the deterministic-Unicode-escalation path never populates
+    directly (is_suspicious is always True for it, so it never takes the
+    fast-path-benign branch that writes `detections`). The decoded payload
+    is explicitly labeled as quoted evidence, not an instruction.
 
     Callers that splice this reason into the reasoning agent's PROMPT
     (ADRBaseline._analyze_messages's triage_reasoning) must pass False: that
@@ -314,6 +320,18 @@ class ADRBaseline(BaseDetector):
                     unicode_finding, include_decoded_preview=False
                 ),
             )
+            # `reason` (rich, with the decoded payload) is deliberately never
+            # sent to the reasoning agent's prompt - `prompt_reason` handles
+            # that. But that means it needs a different way to reach any run
+            # artifact at all: deterministic_result.is_suspicious is always
+            # True, so the two `reason` consumers in the benign fast-path
+            # below (debug log, `detections`) are unreachable for it, and
+            # the escalation path only ever threads prompt_reason through.
+            # Without this log line, an operator investigating a real
+            # detection would have no way to learn what the smuggled
+            # instruction said - log it immediately, before anything
+            # downstream can fail or redact it further.
+            logger.warning(f"🔍 {deterministic_result.reason}")
 
         # Check if triage is enabled
         if self.config.enable_triage:
@@ -387,7 +405,10 @@ class ADRBaseline(BaseDetector):
 
         # Step 2: Escalate to reasoning agent (either from triage or directly)
         logger.info("🔍 Escalating to reasoning agent with MCP context")
-        reasoning_result = self.reasoning_agent.analyze_with_mcp(messages, triage_reasoning, threat_tactic, task_id)
+        reasoning_result = self.reasoning_agent.analyze_with_mcp(
+            messages, triage_reasoning, threat_tactic, task_id,
+            deterministic_evidence=deterministic_result.reason if deterministic_result else None,
+        )
 
         # Combine costs from triage + reasoning
         if self.config.enable_triage:
@@ -741,8 +762,15 @@ class ReasoningAgent:
         """Check if reasoning agent is ready"""
         return self.mcp_ready and self.workspace and self.workspace.exists()
 
-    def analyze_with_mcp(self, messages: List[Dict[str, Any]], triage_reasoning: str = "", threat_tactic: str = "N/A", task_id: str = "conversation") -> DetectionResult:
-        """High-precision analysis using Claude + MCP context providers"""
+    def analyze_with_mcp(self, messages: List[Dict[str, Any]], triage_reasoning: str = "", threat_tactic: str = "N/A", task_id: str = "conversation", *, deterministic_evidence: Optional[str] = None) -> DetectionResult:
+        """High-precision analysis using Claude + MCP context providers.
+
+        deterministic_evidence, when set, is the deterministic Unicode
+        filter's rich reason (decoded payload included) - written into the
+        debug artifact only, never into system_prompt/user_prompt. Keeps
+        the decoded evidence recoverable from run artifacts without
+        reintroducing it into the reasoning agent's trusted prompt slot.
+        """
 
         if not self.is_ready():
             raise RuntimeError("Reasoning Agent not ready")
@@ -757,7 +785,8 @@ class ReasoningAgent:
             logger.info("🔍 High-precision analysis using Claude CLI")
 
             result_text, elapsed, input_tokens, output_tokens = self._invoke_claude_reasoning(
-                system_prompt, user_prompt, task_id, triage_reasoning, threat_tactic
+                system_prompt, user_prompt, task_id, triage_reasoning, threat_tactic,
+                deterministic_evidence=deterministic_evidence,
             )
 
             try:
@@ -771,7 +800,7 @@ class ReasoningAgent:
                     )
                     result_text, elapsed, input_tokens, output_tokens = self._invoke_claude_reasoning(
                         retry_system, retry_user, task_id, triage_reasoning, threat_tactic,
-                        debug_suffix="_retry"
+                        debug_suffix="_retry", deterministic_evidence=deterministic_evidence,
                     )
                     analysis = self._parse_analysis_json(result_text)
                 else:
@@ -813,8 +842,15 @@ class ReasoningAgent:
         triage_reasoning: str,
         threat_tactic: str,
         debug_suffix: str = "",
+        *,
+        deterministic_evidence: Optional[str] = None,
     ) -> tuple[str, float, int, int]:
-        """Run Claude CLI with separate system and user prompts."""
+        """Run Claude CLI with separate system and user prompts.
+
+        deterministic_evidence is written into the debug JSON only - it
+        never reaches system_prompt/user_prompt/cmd below, so the CLI the
+        model actually sees never gets the decoded payload back.
+        """
         model = self.config.get_reasoning_model()
         timeout = self.config.reasoning_config.get('timeout', 90)
 
@@ -853,6 +889,7 @@ class ReasoningAgent:
                 'mcp_tool_usage': mcp_tool_usage,
                 'triage_reasoning': triage_reasoning,
                 'threat_tactic': threat_tactic,
+                'deterministic_filter_evidence': deterministic_evidence,
             }, f, indent=2)
         logger.info(f"📝 Debug log saved: {debug_file}")
         logger.info(f"🔧 MCP tool usage: {mcp_tool_usage}")
